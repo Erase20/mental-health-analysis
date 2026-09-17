@@ -1,0 +1,210 @@
+// 替换 @import 为 @use，解决 deprecation 警告
+// as * 表示全局引入变量，无需加别名（适配你原有代码的变量使用方式）
+@use './variables.scss' as *;
+
+// 全局样式
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  font-size: 14px;
+  color: $text-primary;
+  background-color: $bg-base;
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: $bg-base;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $border-base;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: $text-secondary;
+}
+
+// 通用类
+.clearfix::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-left {
+  text-align: left;
+}
+
+// 文字颜色
+.text-primary {
+  color: $primary-color;
+}
+
+.text-success {
+  color: $success-color;
+}
+
+.text-warning {
+  color: $warning-color;
+}
+
+.text-danger {
+  color: $danger-color;
+}
+
+.text-info {
+  color: $info-color;
+}
+
+// 边距
+.mt-10 {
+  margin-top: 10px;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
+
+.mb-10 {
+  margin-bottom: 10px;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
+
+.ml-10 {
+  margin-left: 10px;
+}
+
+.mr-10 {
+  margin-right: 10px;
+}
+
+// 弹性布局
+.flex {
+  display: flex;
+}
+
+.flex-column {
+  flex-direction: column;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.flex-center {
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-between {
+  justify-content: space-between;
+}
+
+.flex-around {
+  justify-content: space-around;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+// 卡片样式
+.dashboard-card {
+  background: $bg-white;
+  border-radius: $border-radius-base;
+  padding: $spacing-md;
+  box-shadow: $box-shadow-base;
+  margin-bottom: $spacing-md;
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-md;
+
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: $text-primary;
+    }
+  }
+}
+
+// 统计卡片
+.stat-card {
+  background: $bg-white;
+  border-radius: $border-radius-base;
+  padding: $spacing-lg;
+  box-shadow: $box-shadow-base;
+  text-align: center;
+  transition: transform $transition-duration;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $box-shadow-light;
+  }
+
+  .stat-title {
+    font-size: 14px;
+    color: $text-secondary;
+    margin-bottom: $spacing-sm;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: $primary-color;
+  }
+
+  &.stat-card-success .stat-value {
+    color: $success-color;
+  }
+
+  &.stat-card-warning .stat-value {
+    color: $warning-color;
+  }
+
+  &.stat-card-danger .stat-value {
+    color: $danger-color;
+  }
+
+  &.stat-card-info .stat-value {
+    color: $info-color;
+  }
+}
+
+// 图表容器
+.chart-container {
+  width: 100%;
+  height: 400px;
+}
+
+// 页面容器
+.page-container {
+  padding: $spacing-md;
+  min-height: calc(100vh - #{$header-height});
+}

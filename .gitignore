@@ -1,0 +1,50 @@
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+$null
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime data and generated artifacts
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.pkl
+mentally/mentally/backend/instance/
+mentally/mentally/backend/data/
+mentally/mentally/backend/reports/
+
+# Database exports may contain user data or password hashes
+sql/
+
+# Frontend dependencies and builds
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
