@@ -15,7 +15,7 @@ load_dotenv()
 from app import create_app
 
 # 创建应用实例
-app = create_app('development')
+app = create_app(os.environ.get('FLASK_CONFIG', 'development'))
 
 # 确保数据库表存在
 with app.app_context():
@@ -28,7 +28,6 @@ print(f"数据库配置: {app.config['SQLALCHEMY_DATABASE_URI']}")
 print(f"JWT配置: {app.config['JWT_SECRET_KEY'][:10]}...")
 print("服务器运行在: http://localhost:5000")
 app.run(host='0.0.0.0', port=5000, debug=False)
-
 
 
 

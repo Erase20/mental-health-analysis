@@ -36,6 +36,11 @@ mentally/mentally/backend/instance/
 mentally/mentally/backend/data/
 mentally/mentally/backend/reports/
 
+# Resume authoring and local export artifacts
+resume_output/
+resume_work/
+~$*.docx
+
 # Database exports may contain user data or password hashes
 sql/
 
@@ -47,4 +52,3 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-

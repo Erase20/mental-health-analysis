@@ -8,10 +8,9 @@
 
 # ---- Flask 核心 ----
 from flask import Blueprint, request, jsonify
-# ---- JWT 认证 ----
-from flask_jwt_extended import jwt_required   # 所有接口需要登录
 # ---- 业务层 ----
 from app.services.visualization_service import VisualizationService  # 可视化服务（计算图表数据）
+from app.utils.permissions import roles_required
 
 # 创建可视化蓝图，URL前缀 /api/viz
 viz_bp = Blueprint('viz', __name__)
@@ -22,7 +21,7 @@ viz_bp = Blueprint('viz', __name__)
 # 返回：总人数、风险分布、性别比例等概览数据
 # ==========================================================================
 @viz_bp.route('/overview', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_overview():
     """获取概览数据
     
@@ -51,7 +50,7 @@ def get_overview():
 # 返回：各风险等级的人数分布，用于生成饼图或柱状图
 # ==========================================================================
 @viz_bp.route('/risk-analysis', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_risk_analysis():
     """获取风险分析数据
     
@@ -81,7 +80,7 @@ def get_risk_analysis():
 # 返回：各聚类群体的规模、特征均值、名称映射
 # ==========================================================================
 @viz_bp.route('/cluster-analysis', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_cluster_analysis():
     """获取聚类分析数据
     
@@ -111,7 +110,7 @@ def get_cluster_analysis():
 # 返回：各特征对风险预测的重要性排名
 # ==========================================================================
 @viz_bp.route('/feature-analysis', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_feature_analysis():
     """获取特征分析数据
     
@@ -141,7 +140,7 @@ def get_feature_analysis():
 # 返回：特征之间的相关系数矩阵，用于生成热力图
 # ==========================================================================
 @viz_bp.route('/correlation', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_correlation():
     """获取相关性数据
     
@@ -171,7 +170,7 @@ def get_correlation():
 # 返回：各国家/地区的心理健康数据分布，用于生成地图
 # ==========================================================================
 @viz_bp.route('/geo-distribution', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_geo_distribution():
     """获取地理分布数据
     
@@ -201,7 +200,7 @@ def get_geo_distribution():
 # 返回：数据量随时间的变化趋势
 # ==========================================================================
 @viz_bp.route('/trend', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_trend():
     """获取趋势数据
     
@@ -232,7 +231,7 @@ def get_trend():
 # 返回：5维度雷达数据（工作支持度/心理意识/治疗意愿/工作灵活性/社会支持）
 # ==========================================================================
 @viz_bp.route('/radar', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_radar():
     """获取雷达图数据
     
@@ -265,7 +264,7 @@ def get_radar():
 # 返回：多个群体在各维度上的对比数据，用于生成对比图
 # ==========================================================================
 @viz_bp.route('/comparison', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_comparison():
     """获取群体对比数据
     

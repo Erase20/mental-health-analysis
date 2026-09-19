@@ -116,8 +116,28 @@ class ReportService:
             story.append(Paragraph(f"报告类型: {ReportService._get_report_type_name(report_type)}", normal_style))
             story.append(PageBreak())
             
-            # 获取数据
-            overview = VisualizationService.get_overview_stats()
+            # 获取数据。
+            # 学习重点：个人报告与全局报告使用不同数据源，
+            # 否则普通用户可能通过 PDF 看到其他人的聚合统计。
+            personal_profile = None
+            if report_type == 'personal':
+                from app.models.user_profile import UserProfile
+
+                personal_profile = UserProfile.query.filter_by(
+                    user_id=int(user_id),
+                    data_id=None
+                ).order_by(UserProfile.created_at.desc()).first()
+
+                if not personal_profile:
+                    raise ValueError("请先完成心理自评后再生成个人报告")
+
+                personal_risk = personal_profile.risk_level or '未知'
+                overview = {
+                    'total_samples': 1,
+                    'risk_distribution': {personal_risk: 1}
+                }
+            else:
+                overview = VisualizationService.get_overview_stats()
             
             # 1. 概览部分
             story.append(Paragraph("一、数据概览", heading_style))
@@ -148,6 +168,34 @@ class ReportService:
             
             story.append(overview_table)
             story.append(Spacer(1, 0.3*inch))
+
+            if report_type == 'personal':
+                story.append(Paragraph("二、个人评估结果", heading_style))
+                story.append(Spacer(1, 0.2*inch))
+
+                personal_data = [
+                    ['指标', '结果'],
+                    ['风险评分', str(personal_profile.risk_score or 0)],
+                    ['风险等级', personal_profile.risk_level or '未知'],
+                    ['画像标签', '、'.join(personal_profile.get_tags()) or '无'],
+                    ['关键特征', str(personal_profile.get_key_features())]
+                ]
+                personal_table = Table(personal_data, colWidths=[2.2*inch, 3.3*inch])
+                personal_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#16213e')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('FONTNAME', (0, 0), (-1, -1), 'ChineseFont'),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP')
+                ]))
+                story.append(personal_table)
+                story.append(Spacer(1, 0.25*inch))
+
+                for recommendation in personal_profile.get_recommendations():
+                    story.append(Paragraph(f"- {recommendation}", normal_style))
+                    story.append(Spacer(1, 0.08*inch))
+
+                story.append(PageBreak())
             
             # 2. 风险分析部分
             if report_type in ['full', 'risk']:
@@ -275,16 +323,41 @@ class ReportService:
                         story.append(importance_table)
             
             # 5. 结论与建议
-            story.append(PageBreak())
+            if report_type != 'personal':
+                story.append(PageBreak())
             story.append(Paragraph("五、结论与建议", heading_style))
             story.append(Spacer(1, 0.2*inch))
-            
-            conclusions = [
-                "1. 基于K-Means++聚类算法，用户被成功划分为不同的风险群体。",
-                "2. 随机森林分类模型在风险预测上表现良好，准确率超过85%。",
-                "3. 工作压力、家族病史和公司支持度是影响心理健康的关键因素。",
-                "4. 建议针对不同风险群体制定差异化的心理健康干预策略。"
-            ]
+
+            # 模型结论必须来自数据库中的真实测试指标，
+            # 不能把固定的“准确率超过 85%”写死在报告里。
+            latest_classification = AnalysisService.get_latest_analysis('classification')
+            if latest_classification:
+                accuracy = latest_classification.get('accuracy')
+                f1_score = latest_classification.get('f1_score')
+                if accuracy is None or f1_score is None:
+                    model_conclusion = "2. 当前分类模型缺少完整评估指标，本报告不声明准确率。"
+                else:
+                    model_conclusion = (
+                        f"2. 随机森林分类模型在独立测试集上的准确率为{accuracy:.2%}，"
+                        f"加权F1分数为{f1_score:.2%}。"
+                    )
+            else:
+                model_conclusion = "2. 当前尚无分类模型评估结果，本报告不声明模型准确率。"
+
+            if report_type == 'personal':
+                conclusions = [
+                    f"1. 本次个人评估的风险等级为{personal_profile.risk_level or '未知'}，"
+                    f"风险评分为{personal_profile.risk_score or 0}。",
+                    "2. 本报告仅使用当前用户最近一次自评数据，不包含其他用户或全局聚合数据。",
+                    "3. 评估结果用于自我了解和辅助决策，不替代专业医疗诊断。"
+                ]
+            else:
+                conclusions = [
+                    "1. 基于K-Means++聚类算法，用户被成功划分为不同的风险群体。",
+                    model_conclusion,
+                    "3. 工作压力、家族病史和公司支持度是影响心理健康的关键因素。",
+                    "4. 建议针对不同风险群体制定差异化的心理健康干预策略。"
+                ]
             
             for conclusion in conclusions:
                 story.append(Paragraph(conclusion, normal_style))
@@ -309,6 +382,7 @@ class ReportService:
             'full': '完整报告',
             'risk': '风险分析报告',
             'cluster': '聚类分析报告',
-            'model': '模型评估报告'
+            'model': '模型评估报告',
+            'personal': '个人心理健康评估报告'
         }
         return type_names.get(report_type, '完整报告')

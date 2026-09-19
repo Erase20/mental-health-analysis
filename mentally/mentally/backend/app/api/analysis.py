@@ -8,10 +8,9 @@
 
 # ---- Flask 核心 ----
 from flask import Blueprint, request, jsonify
-# ---- JWT 认证 ----
-from flask_jwt_extended import jwt_required, get_jwt_identity  # 所有接口需要登录
 # ---- 业务层 ----
 from app.services.analysis_service import AnalysisService  # 分析服务（核心算法编排）
+from app.utils.permissions import roles_required
 
 # 创建分析蓝图，URL前缀 /api/analysis
 analysis_bp = Blueprint('analysis', __name__)
@@ -23,7 +22,7 @@ analysis_bp = Blueprint('analysis', __name__)
 # 耗时较长，前端应显示加载状态
 # ==========================================================================
 @analysis_bp.route('/run', methods=['POST'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def run_analysis():
     """运行完整分析
     
@@ -32,7 +31,8 @@ def run_analysis():
     """
     try:
         # 获取当前登录用户的ID（用于记录谁触发的分析）
-        current_user_id = get_jwt_identity()
+        from flask import g
+        current_user_id = g.current_user.id
         
         # 调用 AnalysisService 执行完整分析流程
         result = AnalysisService.run_full_analysis(user_id=current_user_id)
@@ -56,7 +56,7 @@ def run_analysis():
 # 使用 KMeans++ 算法对用户群体进行聚类，自动寻找最优K值
 # ==========================================================================
 @analysis_bp.route('/clustering', methods=['POST'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def run_clustering():
     """运行聚类分析
     
@@ -71,16 +71,20 @@ def run_clustering():
         import pandas as pd
         
         # 获取当前用户 ID
-        current_user_id = get_jwt_identity()
+        from flask import g
+        current_user_id = g.current_user.id
         
-        # ① 获取数据（限制2000条，避免数据量太大导致超时）
+        # ① 获取数据。
+        # 2,000 条是演示环境的性能保护上限，不是系统天然只能处理 2,000 条。
+        # 面试时应把它说明为当前限制，并说明后续可改造成异步任务。
         df = DataService.get_dataframe(limit=2000)
         
         # ② 特征工程：生成衍生特征（support_score, stress_index等）
         feature_engineer = FeatureEngineer()
         df_features = feature_engineer.create_features(df)
         
-        # ③ 选择用于聚类的特征列（8个核心特征）
+        # ③ 选择建模特征。
+        # 原始字段包含大量文本，先经过 FeatureEngineer 转成可计算的数值特征。
         feature_cols = [
             'age',                             # 年龄
             'support_score',                   # 支持度评分
@@ -117,7 +121,7 @@ def run_clustering():
 # 使用 RandomForest 随机森林训练风险分类模型
 # ==========================================================================
 @analysis_bp.route('/classification', methods=['POST'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def run_classification():
     """运行分类分析
     
@@ -130,7 +134,8 @@ def run_classification():
         from app.ml.feature_engineering import FeatureEngineer      # 特征工程
         
         # 获取当前用户 ID
-        current_user_id = get_jwt_identity()
+        from flask import g
+        current_user_id = g.current_user.id
         
         # ① 获取数据（限制2000条，避免超时）
         df = DataService.get_dataframe(limit=2000)
@@ -139,7 +144,7 @@ def run_classification():
         feature_engineer = FeatureEngineer()
         df_features = feature_engineer.create_features(df)
         
-        # ③ 选择特征列（与聚类相同的8个核心特征）
+        # ③ 分类与聚类使用相同特征集合，保证模型输入口径一致。
         feature_cols = [
             'age',                             # 年龄
             'support_score',                   # 支持度评分
@@ -176,7 +181,7 @@ def run_classification():
 # 前端传入用户特征值，后端加载已训练模型进行单条预测
 # ==========================================================================
 @analysis_bp.route('/predict', methods=['POST'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def predict():
     """预测风险等级
     
@@ -187,7 +192,8 @@ def predict():
         # ① 解析前端传入的 JSON 特征数据
         data = request.get_json()
         
-        # ② 准备特征向量（使用默认值填充缺失字段）
+        # ② 构造单条预测输入。
+        # 默认值只用于保证接口可调用，不代表医学上的默认风险。
         features = {
             'age': data.get('age', 30),                              # 年龄（默认30岁）
             'support_score': data.get('support_score', 0.5),          # 支持度（默认0.5）
@@ -221,7 +227,7 @@ def predict():
 # 查询参数：type(分析类型), limit(返回条数)
 # ==========================================================================
 @analysis_bp.route('/history', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_history():
     """获取分析历史
     
@@ -256,7 +262,7 @@ def get_history():
 # 参数：analysis_type — URL路径参数（full/clustering/classification）
 # ==========================================================================
 @analysis_bp.route('/latest/<analysis_type>', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_latest(analysis_type):
     """获取最新分析结果
     

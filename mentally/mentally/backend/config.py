@@ -3,7 +3,7 @@ from datetime import timedelta
 
 class Config:
     """基础配置类"""
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-here'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-only-secret-key-change-me-32chars'
     
     # MySQL数据库配置
     MYSQL_HOST = os.environ.get('MYSQL_HOST') or 'localhost'
@@ -12,7 +12,9 @@ class Config:
     MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD') or 'root'
     MYSQL_DB = os.environ.get('MYSQL_DB') or 'mental_health_db'
     
-    SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or (
+        f'mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_POOL_SIZE = 20
     SQLALCHEMY_POOL_TIMEOUT = 30
@@ -25,7 +27,7 @@ class Config:
     REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD') or None
     
     # JWT配置
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-key'
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-only-jwt-secret-key-change-me-32chars'
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     

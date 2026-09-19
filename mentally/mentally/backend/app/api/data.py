@@ -8,8 +8,6 @@
 
 # ---- Flask 核心 ----
 from flask import Blueprint, request, jsonify, current_app  # current_app=当前应用实例（获取配置）
-# ---- JWT 认证 ----
-from flask_jwt_extended import jwt_required, get_jwt_identity  # 所有接口均需登录
 # ---- 工具库 ----
 from werkzeug.utils import secure_filename  # 安全文件名处理（过滤特殊字符，防止路径注入攻击）
 import os                                    # 文件系统操作（路径拼接等）
@@ -18,6 +16,7 @@ import pandas as pd                          # 数据处理（时间戳、导出
 from app.services.data_service import DataService       # 数据服务（导入/查询/统计/导出）
 from app.models.mental_health_data import MentalHealthData  # 心理健康数据模型
 from app import db                                        # 数据库实例
+from app.utils.permissions import roles_required
 
 # 允许上传的文件扩展名（只接受CSV和Excel格式）
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
@@ -40,7 +39,7 @@ def allowed_file(filename):
 # 返回：导入的数据条数 + 文件名
 # ==========================================================================
 @data_bp.route('/upload', methods=['POST'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def upload_file():
     """上传数据文件
     
@@ -85,8 +84,8 @@ def upload_file():
         filepath = os.path.join(current_app.config['DATA_PATH'], filename)
         file.save(filepath)   # 写入磁盘
         
-        # ⑥ 调用 DataService 解析 CSV 并批量入库，返回导入条数
-        count = DataService.import_from_csv(filepath)
+        # ⑥ 按扩展名解析 CSV/Excel 并批量入库，返回导入条数
+        count = DataService.import_from_file(filepath)
         
         return jsonify({
             'code': 200,
@@ -110,7 +109,7 @@ def upload_file():
 # 查询参数：page(页码), per_page(每页条数), risk_level, gender, age_group, country, cluster_id
 # ==========================================================================
 @data_bp.route('/list', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_data_list():
     """获取数据列表
     
@@ -153,7 +152,7 @@ def get_data_list():
 # GET /api/data/<id> — 获取单条数据详情
 # ==========================================================================
 @data_bp.route('/<int:data_id>', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_data_detail(data_id):
     """获取数据详情
     
@@ -189,7 +188,7 @@ def get_data_detail(data_id):
 # DELETE /api/data/<id> — 删除单条数据
 # ==========================================================================
 @data_bp.route('/<int:data_id>', methods=['DELETE'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def delete_data(data_id):
     """删除数据
     
@@ -226,7 +225,7 @@ def delete_data(data_id):
 # 返回：总数、风险等级分布、性别分布、年龄分布等统计数据
 # ==========================================================================
 @data_bp.route('/statistics', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_statistics():
     """获取数据统计
     
@@ -256,7 +255,7 @@ def get_statistics():
 # 返回：该特征各取值的数量分布（用于生成饼图/柱状图）
 # ==========================================================================
 @data_bp.route('/distribution/<feature_name>', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_distribution(feature_name):
     """获取特征分布
     
@@ -289,7 +288,7 @@ def get_distribution(feature_name):
 # 流程：筛选数据 → 转DataFrame → 保存为CSV → 返回下载链接
 # ==========================================================================
 @data_bp.route('/export', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def export_data():
     """导出数据
     

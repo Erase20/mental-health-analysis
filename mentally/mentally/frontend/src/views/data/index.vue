@@ -50,10 +50,11 @@
         </el-form-item>
         <el-form-item label="年龄组">
           <el-select v-model="filter.age_group" placeholder="全部" clearable>
-            <el-option label="18-25" value="18-25" />
-            <el-option label="26-35" value="26-35" />
-            <el-option label="36-45" value="36-45" />
-            <el-option label="46-55" value="46-55" />
+            <el-option label="25岁及以下" value="25岁及以下" />
+            <el-option label="26-35岁" value="26-35岁" />
+            <el-option label="36-45岁" value="36-45岁" />
+            <el-option label="46-55岁" value="46-55岁" />
+            <el-option label="56岁以上" value="56岁以上" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -72,12 +73,14 @@
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="age" label="年龄" width="80" />
-        <el-table-column prop="gender" label="性别" width="100" />
+        <el-table-column prop="gender" label="性别" width="100">
+          <template #default="{ row }">{{ genderLabel(row.gender) }}</template>
+        </el-table-column>
         <el-table-column prop="country" label="国家" width="120" />
         <el-table-column prop="risk_level" label="风险等级" width="120">
           <template #default="{ row }">
             <el-tag :type="getRiskTagType(row.risk_level)">
-              {{ row.risk_level }}
+              {{ riskLabel(row.risk_level) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -89,11 +92,21 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="treatment" label="治疗" width="100" />
-        <el-table-column prop="family_history" label="家族病史" width="100" />
-        <el-table-column prop="work_interfere" label="工作干扰" width="120" />
-        <el-table-column prop="remote_work" label="远程工作" width="100" />
-        <el-table-column prop="tech_company" label="科技公司" width="100" />
+        <el-table-column prop="treatment" label="治疗" width="100">
+          <template #default="{ row }">{{ yesNoLabel(row.treatment) }}</template>
+        </el-table-column>
+        <el-table-column prop="family_history" label="家族病史" width="100">
+          <template #default="{ row }">{{ yesNoLabel(row.family_history) }}</template>
+        </el-table-column>
+        <el-table-column prop="work_interfere" label="工作干扰" width="120">
+          <template #default="{ row }">{{ workInterfereLabel(row.work_interfere) }}</template>
+        </el-table-column>
+        <el-table-column prop="remote_work" label="远程工作" width="100">
+          <template #default="{ row }">{{ yesNoLabel(row.remote_work) }}</template>
+        </el-table-column>
+        <el-table-column prop="tech_company" label="科技公司" width="100">
+          <template #default="{ row }">{{ yesNoLabel(row.tech_company) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="viewDetail(row)">
@@ -125,21 +138,21 @@
       <el-descriptions :column="2" border v-if="currentRow">
         <el-descriptions-item label="ID">{{ currentRow.id }}</el-descriptions-item>
         <el-descriptions-item label="年龄">{{ currentRow.age }}</el-descriptions-item>
-        <el-descriptions-item label="性别">{{ currentRow.gender }}</el-descriptions-item>
+        <el-descriptions-item label="性别">{{ genderLabel(currentRow.gender) }}</el-descriptions-item>
         <el-descriptions-item label="国家">{{ currentRow.country }}</el-descriptions-item>
         <el-descriptions-item label="州/省">{{ currentRow.state }}</el-descriptions-item>
         <el-descriptions-item label="风险等级">
           <el-tag :type="getRiskTagType(currentRow.risk_level)">
-            {{ currentRow.risk_level }}
+            {{ riskLabel(currentRow.risk_level) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="是否自雇">{{ currentRow.self_employed }}</el-descriptions-item>
-        <el-descriptions-item label="家族病史">{{ currentRow.family_history }}</el-descriptions-item>
-        <el-descriptions-item label="是否治疗">{{ currentRow.treatment }}</el-descriptions-item>
-        <el-descriptions-item label="工作干扰">{{ currentRow.work_interfere }}</el-descriptions-item>
+        <el-descriptions-item label="是否自雇">{{ yesNoLabel(currentRow.self_employed) }}</el-descriptions-item>
+        <el-descriptions-item label="家族病史">{{ yesNoLabel(currentRow.family_history) }}</el-descriptions-item>
+        <el-descriptions-item label="是否治疗">{{ yesNoLabel(currentRow.treatment) }}</el-descriptions-item>
+        <el-descriptions-item label="工作干扰">{{ workInterfereLabel(currentRow.work_interfere) }}</el-descriptions-item>
         <el-descriptions-item label="公司规模">{{ currentRow.no_employees }}</el-descriptions-item>
-        <el-descriptions-item label="远程工作">{{ currentRow.remote_work }}</el-descriptions-item>
-        <el-descriptions-item label="科技公司">{{ currentRow.tech_company }}</el-descriptions-item>
+        <el-descriptions-item label="远程工作">{{ yesNoLabel(currentRow.remote_work) }}</el-descriptions-item>
+        <el-descriptions-item label="科技公司">{{ yesNoLabel(currentRow.tech_company) }}</el-descriptions-item>
         <el-descriptions-item label="公司福利">{{ currentRow.benefits }}</el-descriptions-item>
         <el-descriptions-item label="关怀选项">{{ currentRow.care_options }}</el-descriptions-item>
         <el-descriptions-item label="健康项目">{{ currentRow.wellness_program }}</el-descriptions-item>
@@ -190,6 +203,35 @@ const getRiskTagType = (risk) => {
   }
   return types[risk] || 'info'
 }
+
+// 下面三个函数只负责“展示翻译”，不会修改接口中的原始枚举值。
+const riskLabel = (risk) => ({
+  'Low Risk': '低风险',
+  'Medium Risk': '中风险',
+  'High Risk': '高风险'
+}[risk] || risk || '-')
+
+const genderLabel = (gender) => {
+  const value = String(gender || '').trim().toLowerCase()
+  if (['male', 'm', 'man'].includes(value)) return '男'
+  if (['female', 'f', 'woman'].includes(value)) return '女'
+  if (!value) return '未知'
+  return '其他/不愿透露'
+}
+
+const yesNoLabel = (value) => {
+  if (value === 'Yes') return '是'
+  if (value === 'No') return '否'
+  return value || '-'
+}
+
+const workInterfereLabel = (value) => ({
+  Often: '经常',
+  Sometimes: '有时',
+  Rarely: '很少',
+  Never: '从不',
+  'Not applicable': '不适用'
+}[value] || value || '-')
 
 const getClusterName = (clusterId) => {
   const names = {
@@ -256,6 +298,7 @@ const handleDelete = (row) => {
 }
 
 const handleFileChange = async (file) => {
+  // el-upload 关闭了自动上传，这里手动构造 multipart/form-data。
   const formData = new FormData()
   formData.append('file', file.raw)
   

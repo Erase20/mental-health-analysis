@@ -109,7 +109,7 @@ def register():
         user = User(
             username=username,
             email=email,
-            role=data.get('role', 'user'),          # 角色默认为普通用户
+            role='user',                             # 公开注册固定为普通用户，防止角色提升
             phone=data.get('phone'),                 # 手机号（可选）
             department=data.get('department')         # 部门（可选）
         )

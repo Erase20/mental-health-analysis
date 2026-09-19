@@ -3,7 +3,7 @@
     <div class="login-box">
       <div class="login-header">
         <h2 class="title">心理健康用户画像分析系统</h2>
-        <p class="subtitle">Mental Health User Profiling System</p>
+        <p class="subtitle">心理调查数据分析与风险画像平台</p>
       </div>
       
       <el-form
@@ -50,10 +50,6 @@
           <el-link type="primary" @click="goRegister">注册账号</el-link>
         </div>
       </el-form>
-    </div>
-    
-    <div class="login-footer">
-      <p>© 2024 心理健康用户画像分析系统 | 毕业设计项目</p>
     </div>
   </div>
 </template>
@@ -156,14 +152,6 @@ const goRegister = () => {
         margin-top: 10px;
       }
     }
-  }
-  
-  .login-footer {
-    position: absolute;
-    bottom: 20px;
-    color: #fff;
-    font-size: 12px;
-    opacity: 0.8;
   }
 }
 </style>

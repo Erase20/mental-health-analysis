@@ -1,5 +1,5 @@
 <template>
-  <div class="analysis-container">
+  <div class="analysis-container" v-loading="loading">
     <!-- 特征分布分析 -->
     <el-row :gutter="20">
       <el-col :span="24">
@@ -17,10 +17,22 @@
           </div>
           <el-row :gutter="20">
             <el-col :xs="24" :lg="12">
-              <v-chart class="chart-container" :option="featurePieOption" autoresize />
+              <v-chart
+                v-if="hasData(currentFeatureData)"
+                class="chart-container"
+                :option="featurePieOption"
+                autoresize
+              />
+              <el-empty v-else class="chart-empty" description="暂无特征数据" />
             </el-col>
             <el-col :xs="24" :lg="12">
-              <v-chart class="chart-container" :option="featureBarOption" autoresize />
+              <v-chart
+                v-if="hasData(currentFeatureData)"
+                class="chart-container"
+                :option="featureBarOption"
+                autoresize
+              />
+              <el-empty v-else class="chart-empty" description="暂无特征数据" />
             </el-col>
           </el-row>
         </div>
@@ -34,7 +46,13 @@
           <div class="card-header">
             <span class="title">风险等级与年龄关系</span>
           </div>
-          <v-chart class="chart-container" :option="riskAgeOption" autoresize />
+          <v-chart
+            v-if="hasData(riskAnalysisData.risk_by_age)"
+            class="chart-container"
+            :option="riskAgeOption"
+            autoresize
+          />
+          <el-empty v-else class="chart-empty" description="暂无风险与年龄数据" />
         </div>
       </el-col>
       <el-col :xs="24" :lg="12">
@@ -42,7 +60,13 @@
           <div class="card-header">
             <span class="title">风险等级与性别关系</span>
           </div>
-          <v-chart class="chart-container" :option="riskGenderOption" autoresize />
+          <v-chart
+            v-if="hasData(riskAnalysisData.risk_by_gender)"
+            class="chart-container"
+            :option="riskGenderOption"
+            autoresize
+          />
+          <el-empty v-else class="chart-empty" description="暂无风险与性别数据" />
         </div>
       </el-col>
     </el-row>
@@ -54,7 +78,13 @@
           <div class="card-header">
             <span class="title">特征相关性分析</span>
           </div>
-          <v-chart class="chart-container" :option="correlationOption" autoresize />
+          <v-chart
+            v-if="hasData(correlationData)"
+            class="chart-container"
+            :option="correlationOption"
+            autoresize
+          />
+          <el-empty v-else class="chart-empty" description="暂无可计算的相关性数据" />
         </div>
       </el-col>
     </el-row>
@@ -62,7 +92,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { PieChart, BarChart, HeatmapChart } from 'echarts/charts'
@@ -73,6 +103,7 @@ import {
   GridComponent,
   VisualMapComponent
 } from 'echarts/components'
+import { getCorrelation, getFeatureAnalysis, getRiskAnalysis } from '@/api/visualization'
 
 use([
   CanvasRenderer,
@@ -87,75 +118,59 @@ use([
 ])
 
 const selectedFeature = ref('treatment')
+const loading = ref(false)
+const featureData = ref({})
+const riskAnalysisData = ref({
+  risk_by_age: { categories: [], series: [] },
+  risk_by_gender: { categories: [], series: [] }
+})
+const correlationData = ref({ categories: [], data: [] })
 
-// 静态特征分布数据
-const staticFeatureData = {
-  treatment_distribution: {
-    'Yes': 12580,
-    'No': 37355
-  },
-  family_history_distribution: {
-    'Yes': 8988,
-    'No': 40947
-  },
-  work_interfere_distribution: {
-    'Never': 16405,
-    'Rarely': 12258,
-    'Sometimes': 14613,
-    'Often': 6659
-  },
-  benefits_distribution: {
-    'Yes': 18520,
-    'No': 19500,
-    "Don't know": 11915
-  },
-  remote_work_distribution: {
-    'Yes': 21568,
-    'No': 28367
-  },
-  tech_company_distribution: {
-    'Yes': 32458,
-    'No': 17477
-  }
+const RISK_LABELS = {
+  'Low Risk': '低风险',
+  'Medium Risk': '中风险',
+  'High Risk': '高风险'
 }
 
-// 静态风险分析数据
-const staticRiskAnalysisData = {
-  risk_by_age: {
-    categories: ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'],
-    series: [
-      { name: 'High Risk', data: [3256, 8934, 6234, 4123, 2156, 1095] },
-      { name: 'Medium Risk', data: [1523, 3156, 2432, 1345, 786, 273] },
-      { name: 'Low Risk', data: [2156, 4689, 3567, 2134, 1234, 842] }
-    ]
-  },
-  risk_by_gender: {
-    categories: ['Male', 'Female', 'Other'],
-    series: [
-      { name: 'High Risk', data: [14523, 11023, 252] },
-      { name: 'Medium Risk', data: [5234, 4156, 125] },
-      { name: 'Low Risk', data: [8234, 6234, 154] }
-    ]
-  }
+// 后端保存英文值是为了稳定计算；前端在展示层统一翻译成中文。
+const VALUE_LABELS = {
+  Yes: '是',
+  No: '否',
+  "Don't know": '不知道',
+  'Not sure': '不确定',
+  Never: '从不',
+  Rarely: '很少',
+  Sometimes: '有时',
+  Often: '经常'
 }
 
-// 静态相关性数据
-const staticCorrelationData = {
-  categories: ['年龄', '工作经验', '工作时间', '压力指数', '工作满意度', '心理健康评分'],
-  data: [
-    [0, 0, 1.0], [0, 1, 0.78], [0, 2, 0.32], [0, 3, -0.15], [0, 4, -0.08], [0, 5, -0.12],
-    [1, 0, 0.78], [1, 1, 1.0], [1, 2, 0.45], [1, 3, -0.05], [1, 4, 0.12], [1, 5, 0.08],
-    [2, 0, 0.32], [2, 1, 0.45], [2, 2, 1.0], [2, 3, 0.25], [2, 4, -0.35], [2, 5, -0.42],
-    [3, 0, -0.15], [3, 1, -0.05], [3, 2, 0.25], [3, 3, 1.0], [3, 4, -0.65], [3, 5, -0.78],
-    [4, 0, -0.08], [4, 1, 0.12], [4, 2, -0.35], [4, 3, -0.65], [4, 4, 1.0], [4, 5, 0.82],
-    [5, 0, -0.12], [5, 1, 0.08], [5, 2, -0.42], [5, 3, -0.78], [5, 4, 0.82], [5, 5, 1.0]
-  ]
+const CORRELATION_LABELS = {
+  age: '年龄',
+  cluster_id: '聚类群体',
+  risk_level_encoded: '风险等级',
+  gender_encoded: '性别',
+  treatment_encoded: '治疗情况'
 }
+
+const currentFeatureData = computed(() => {
+  const key = `${selectedFeature.value}_distribution`
+  return featureData.value[key] || {}
+})
+
+const hasData = (data) => {
+  // 不同接口的数据格式不同：分布是对象，风险图是 series，相关性是 data。
+  if (!data) return false
+  if (Array.isArray(data)) return data.length > 0
+  if (Array.isArray(data.series)) return data.series.length > 0
+  if (Array.isArray(data.data)) return data.data.length > 0
+  return Object.values(data).some(value => Number(value) > 0)
+}
+
+const translateValue = (value) => VALUE_LABELS[value] || value
 
 // 特征饼图配置
 const featurePieOption = computed(() => {
-  const key = `${selectedFeature.value}_distribution`
-  const data = staticFeatureData[key] || {}
+  const data = currentFeatureData.value
   
   return {
     tooltip: { trigger: 'item' },
@@ -163,7 +178,10 @@ const featurePieOption = computed(() => {
     series: [{
       type: 'pie',
       radius: '60%',
-      data: Object.entries(data).map(([name, value]) => ({ name, value })),
+      data: Object.entries(data).map(([name, value]) => ({
+        name: translateValue(name),
+        value
+      })),
       emphasis: {
         itemStyle: {
           shadowBlur: 10,
@@ -177,9 +195,8 @@ const featurePieOption = computed(() => {
 
 // 特征柱状图配置
 const featureBarOption = computed(() => {
-  const key = `${selectedFeature.value}_distribution`
-  const data = staticFeatureData[key] || {}
-  const categories = Object.keys(data)
+  const data = currentFeatureData.value
+  const categories = Object.keys(data).map(translateValue)
   const values = Object.values(data)
   
   return {
@@ -205,11 +222,11 @@ const featureBarOption = computed(() => {
 
 // 风险与年龄关系图
 const riskAgeOption = computed(() => {
-  const data = staticRiskAnalysisData.risk_by_age || { categories: [], series: [] }
+  const data = riskAnalysisData.value.risk_by_age || { categories: [], series: [] }
   
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: data.series?.map(s => s.name) || [] },
+    legend: { data: data.series?.map(s => RISK_LABELS[s.name] || s.name) || [] },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: {
       type: 'category',
@@ -217,7 +234,7 @@ const riskAgeOption = computed(() => {
     },
     yAxis: { type: 'value' },
     series: (data.series || []).map(s => ({
-      name: s.name,
+      name: RISK_LABELS[s.name] || s.name,
       type: 'bar',
       stack: 'total',
       data: s.data
@@ -227,11 +244,11 @@ const riskAgeOption = computed(() => {
 
 // 风险与性别关系图
 const riskGenderOption = computed(() => {
-  const data = staticRiskAnalysisData.risk_by_gender || { categories: [], series: [] }
+  const data = riskAnalysisData.value.risk_by_gender || { categories: [], series: [] }
   
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: data.series?.map(s => s.name) || [] },
+    legend: { data: data.series?.map(s => RISK_LABELS[s.name] || s.name) || [] },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: {
       type: 'category',
@@ -239,7 +256,7 @@ const riskGenderOption = computed(() => {
     },
     yAxis: { type: 'value' },
     series: (data.series || []).map(s => ({
-      name: s.name,
+      name: RISK_LABELS[s.name] || s.name,
       type: 'bar',
       data: s.data
     }))
@@ -248,14 +265,16 @@ const riskGenderOption = computed(() => {
 
 // 相关性热力图配置
 const correlationOption = computed(() => {
-  const categories = staticCorrelationData.categories || []
-  const data = staticCorrelationData.data || []
+  const categories = (correlationData.value.categories || []).map(
+    name => CORRELATION_LABELS[name] || name
+  )
+  const data = correlationData.value.data || []
   
   return {
     tooltip: {
       position: 'top',
       formatter: function (params) {
-        return `${categories[params.value[0]]} vs ${categories[params.value[1]]}<br/>相关性: ${params.value[2]}`
+        return `${categories[params.value[0]]} 与 ${categories[params.value[1]]}<br/>相关系数：${params.value[2]}`
       }
     },
     grid: { height: '70%', top: '10%' },
@@ -293,12 +312,45 @@ const correlationOption = computed(() => {
     }]
   }
 })
+
+const fetchData = async () => {
+  loading.value = true
+  try {
+    // 三个接口互不依赖，使用 Promise.all 并行请求以减少首屏等待时间。
+    const [featureRes, riskRes, correlationRes] = await Promise.all([
+      getFeatureAnalysis(),
+      getRiskAnalysis(),
+      getCorrelation()
+    ])
+
+    if (featureRes.code === 200) featureData.value = featureRes.data || {}
+    if (riskRes.code === 200) {
+      riskAnalysisData.value = {
+        risk_by_age: riskRes.data?.risk_by_age || { categories: [], series: [] },
+        risk_by_gender: riskRes.data?.risk_by_gender || { categories: [], series: [] }
+      }
+    }
+    if (correlationRes.code === 200) correlationData.value = correlationRes.data || {}
+  } catch (error) {
+    console.error('获取分析数据失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchData)
 </script>
 
 <style lang="scss" scoped>
 .analysis-container {
   .mt-20 {
     margin-top: 20px;
+  }
+
+  .chart-empty {
+    height: 320px;
+    display: flex;
+    justify-content: center;
   }
 }
 </style>

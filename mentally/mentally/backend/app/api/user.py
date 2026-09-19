@@ -10,12 +10,11 @@
 # =============================================================================
 
 # ---- Flask 核心 ----
-from flask import Blueprint, request, jsonify
-# ---- JWT 认证 ----
-from flask_jwt_extended import jwt_required, get_jwt_identity  # 所有接口需登录
+from flask import Blueprint, request, jsonify, g
 # ---- 业务层 ----
 from app.services.profile_service import ProfileService             # 画像服务（CRUD/自评/搜索）
 from app.services.visualization_service import VisualizationService  # 可视化服务（画像详情数据）
+from app.utils.permissions import auth_required, roles_required
 
 # 创建用户画像蓝图，URL前缀 /api/user
 user_bp = Blueprint('user', __name__)
@@ -24,7 +23,7 @@ user_bp = Blueprint('user', __name__)
 # GET /api/user/profiles — 获取用户画像列表（分页 + 筛选）
 # ==========================================================================
 @user_bp.route('/profiles', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_profiles():
     """获取用户画像列表
     
@@ -58,7 +57,7 @@ def get_profiles():
 # GET /api/user/profiles/<id> — 获取单个画像详情
 # ==========================================================================
 @user_bp.route('/profiles/<int:profile_id>', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_profile(profile_id):
     """获取用户画像详情
     
@@ -94,7 +93,7 @@ def get_profile(profile_id):
 # GET /api/user/profiles/by-data/<id> — 根据原始数据ID获取画像
 # ==========================================================================
 @user_bp.route('/profiles/by-data/<int:data_id>', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_profile_by_data(data_id):
     """根据数据ID获取画像
     
@@ -130,7 +129,7 @@ def get_profile_by_data(data_id):
 # GET /api/user/profiles/statistics — 画像统计概览
 # ==========================================================================
 @user_bp.route('/profiles/statistics', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_profile_statistics():
     """获取画像统计
     
@@ -157,7 +156,7 @@ def get_profile_statistics():
 # GET /api/user/profiles/search — 搜索画像
 # ==========================================================================
 @user_bp.route('/profiles/search', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def search_profiles():
     """搜索画像
     
@@ -198,7 +197,7 @@ def search_profiles():
 # GET /api/user/profiles/<id>/similar — 获取相似画像
 # ==========================================================================
 @user_bp.route('/profiles/<int:profile_id>/similar', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_similar_profiles(profile_id):
     """获取相似画像
     
@@ -229,7 +228,7 @@ def get_similar_profiles(profile_id):
 # GET /api/user/profiles/tags — 获取所有标签列表
 # ==========================================================================
 @user_bp.route('/profiles/tags', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_profile_tags():
     """获取所有标签
     
@@ -256,7 +255,7 @@ def get_profile_tags():
 # GET /api/user/profiles/by-tag/<tag> — 按标签筛选画像
 # ==========================================================================
 @user_bp.route('/profiles/by-tag/<tag>', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_profiles_by_tag(tag):
     """根据标签获取画像
     
@@ -290,7 +289,7 @@ def get_profiles_by_tag(tag):
 # 前端传入用户填写的特征值，后端预测风险并生成画像记录
 # ==========================================================================
 @user_bp.route('/self-assessment', methods=['POST'])
-@jwt_required()   # 需要登录
+@auth_required
 def self_assessment():
     """用户自评 - 填写特征值查看画像和风险
     
@@ -299,7 +298,7 @@ def self_assessment():
     """
     try:
         # 获取当前登录用户ID（用于关联自评记录）
-        current_user_id = get_jwt_identity()
+        current_user_id = g.current_user.id
         # 解析前端传入的调查数据
         data = request.get_json()
         
@@ -337,7 +336,7 @@ def self_assessment():
 # 自评记录特征：data_id 为 NULL 且 user_id 不为 NULL
 # ==========================================================================
 @user_bp.route('/assessment-records', methods=['GET'])
-@jwt_required()   # 需要登录
+@auth_required
 def get_assessment_records():
     """获取自评记录列表（管理员查看所有，普通用户查看自己的）
     
@@ -346,14 +345,13 @@ def get_assessment_records():
     """
     try:
         # 局部导入（避免循环依赖）
-        from flask_jwt_extended import get_jwt              # 获取JWT完整声明
         from app.models.user_profile import UserProfile     # 用户画像模型
         from app.models.user import User                    # 用户模型
         
         # ① 获取当前用户信息
-        current_user_id = get_jwt_identity()    # 当前用户ID
-        claims = get_jwt()                       # JWT中的完整声明
-        role = claims.get('role', 'user')        # 用户角色
+        current_user = g.current_user
+        current_user_id = current_user.id
+        role = current_user.role
         
         # ② 分页和筛选参数
         page = request.args.get('page', 1, type=int)
@@ -435,7 +433,7 @@ def get_assessment_records():
 # GET /api/user/assessment-records/<id> — 获取单条自评记录详情
 # ==========================================================================
 @user_bp.route('/assessment-records/<int:record_id>', methods=['GET'])
-@jwt_required()   # 需要登录
+@auth_required
 def get_assessment_detail(record_id):
     """获取单条自评记录详情
     
@@ -446,15 +444,23 @@ def get_assessment_detail(record_id):
         # 局部导入
         from app.models.user_profile import UserProfile
         from app.models.user import User
+        from app import db
         
         # ① 查询记录
-        record = UserProfile.query.get(record_id)
+        record = db.session.get(UserProfile, record_id)
         if not record:
             return jsonify({
                 'code': 404,
                 'message': '记录不存在',
                 'data': None
             }), 404
+
+        if g.current_user.role not in ['admin', 'analyst'] and record.user_id != g.current_user.id:
+            return jsonify({
+                'code': 403,
+                'message': '无权限查看该自评记录',
+                'data': None
+            }), 403
         
         # ② 构建返回数据
         d = record.to_dict()
@@ -495,7 +501,7 @@ def get_assessment_detail(record_id):
 # GET /api/user/assessment-records/stats — 自评统计数据（管理员）
 # ==========================================================================
 @user_bp.route('/assessment-records/stats', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_assessment_stats():
     """获取自评统计数据（管理员）
     
@@ -543,7 +549,7 @@ def get_assessment_stats():
 # GET /api/user/accounts — 获取用户账号列表（管理员/分析师）
 # ==========================================================================
 @user_bp.route('/accounts', methods=['GET'])
-@jwt_required()   # 需要登录
+@roles_required('admin', 'analyst')
 def get_user_accounts():
     """获取用户账号列表（管理员）
     
@@ -552,15 +558,8 @@ def get_user_accounts():
     """
     try:
         # 局部导入
-        from flask_jwt_extended import get_jwt       # 获取JWT声明
         from app.models.user import User              # 用户模型
         from app import db                             # 数据库实例
-        
-        # ① 权限检查：只有管理员和分析师可以查看
-        claims = get_jwt()
-        role = claims.get('role', 'user')
-        if role not in ['admin', 'analyst']:
-            return jsonify({'code': 403, 'message': '无权限', 'data': None}), 403
         
         # ② 分页和筛选参数
         page = request.args.get('page', 1, type=int)           # 页码
@@ -611,7 +610,7 @@ def get_user_accounts():
 # 权限：仅 admin 可操作（analyst 也不行）
 # ==========================================================================
 @user_bp.route('/accounts/<int:user_id>', methods=['DELETE'])
-@jwt_required()   # 需要登录
+@roles_required('admin')
 def delete_user_account(user_id):
     """删除用户账号（管理员）
     
@@ -620,20 +619,13 @@ def delete_user_account(user_id):
     """
     try:
         # 局部导入
-        from flask_jwt_extended import get_jwt
         from app.models.user import User
         from app.models.user_profile import UserProfile  # 需要删除关联画像
         from app import db
         
-        # ① 权限检查：只有管理员(admin)可以删除用户
-        claims = get_jwt()
-        role = claims.get('role', 'user')
-        if role != 'admin':
-            return jsonify({'code': 403, 'message': '只有管理员可以删除用户', 'data': None}), 403
-        
         # ② 禁止删除自己的账号（防止管理员误操作）
-        current_user_id = get_jwt_identity()
-        if int(current_user_id) == user_id:
+        current_user_id = g.current_user.id
+        if current_user_id == user_id:
             return jsonify({'code': 400, 'message': '不能删除自己的账号', 'data': None}), 400
         
         # ③ 查找目标用户
@@ -667,7 +659,7 @@ def delete_user_account(user_id):
 # PUT /api/user/accounts/<id>/toggle-status — 启用/禁用用户（仅管理员）
 # ==========================================================================
 @user_bp.route('/accounts/<int:user_id>/toggle-status', methods=['PUT'])
-@jwt_required()   # 需要登录
+@roles_required('admin')
 def toggle_user_status(user_id):
     """启用/禁用用户账号（管理员）
     
@@ -677,15 +669,8 @@ def toggle_user_status(user_id):
     """
     try:
         # 局部导入
-        from flask_jwt_extended import get_jwt
         from app.models.user import User
         from app import db
-        
-        # ① 权限检查：只有管理员可以操作
-        claims = get_jwt()
-        role = claims.get('role', 'user')
-        if role != 'admin':
-            return jsonify({'code': 403, 'message': '只有管理员可以操作', 'data': None}), 403
         
         # ② 查找目标用户
         user = User.query.get(user_id)
